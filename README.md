@@ -3,4 +3,4 @@ WebODE is an extensible ontology-engineering suite based on an application serve
 
 WebODE was built as a scalable, extensible, integrated workbench that covers and gave support to most of the activities involved in the ontology development process (conceptualization, reasoning, exchange, etc.) and supplied a comprehensive set of ontology related services that permit interoperation with other information systems. Among these services, the workbench integrated services for ontology language import and export (XML, RDF(S), OIL, DAML+OIL, OWL, CARIN, FLogic, Jess, Prolog), for axiom edition with WAB (WebODE Axiom Builder), for documentation, for evaluation, for evolution, for learning, for merge, and an inference engine.
 
-Main publication https://www.aaai.org/ojs/index.php/aimagazine/article/view/1717
+Main publication [WEBODE in a Nutshell](https://www.aaai.org/ojs/index.php/aimagazine/article/view/1717)

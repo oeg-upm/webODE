@@ -6,4 +6,4 @@ WebODE was built as a scalable, extensible, integrated workbench that covers and
 
 Main publication [WEBODE in a Nutshell](https://www.aaai.org/ojs/index.php/aimagazine/article/view/1717)
 
-How to cite this work: Arpírez, J. C., Corcho, O., Fernández-López, M., & Gómez-Pérez, A. (2003). WebODE in a nutshell. AI magazine, 24(3), 37.
+How to cite this work: "Arpírez, J. C., Corcho, O., Fernández-López, M., & Gómez-Pérez, A. (2003). WebODE in a nutshell. AI magazine, 24(3), 37."

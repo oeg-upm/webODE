@@ -1,0 +1,61 @@
+package webode.Axiom;
+
+import java.lang.System;
+import java.io.*;
+import java_cup.runtime.Symbol;
+
+
+
+%%
+
+%{
+  private int commencount = 0;
+%} 
+%line
+%char
+%unicode
+%cup
+%eofval{
+  return new Symbol(sym.EOF); 
+%eofval}
+ALPHA=[A-Za-zА-За-з]
+DIGIT=[0-9]
+PUNTO="."
+NEWLINE_WHITE_SPACE_CHAR=[\ \t\b\r\n]
+WHITE_SPACE_CHAR=[\ \t\b\r]
+
+
+%% 
+<YYINITIAL> "not_subclass_of"  { return (new Symbol(sym.NOT_SUBCLASS,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "disjoint_subclass_of"  { return (new Symbol(sym.DISJOINT,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "subclass_of"  { return (new Symbol(sym.SUBCLASS,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "exhautive_subclass_partition"  { return (new Symbol(sym.EXHAUSTIVE,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "transitive_part_of"  { return (new Symbol(sym.TRANSITIVE,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "instrasitive_part_of"  { return (new Symbol(sym.INSTRANSITIVE,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "forall"  { return (new Symbol(sym.FORALL,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "exists"  { return (new Symbol(sym.EXISTS,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "and"     { return (new Symbol(sym.AND,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "not"     { return (new Symbol(sym.NOT,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "or"      { return (new Symbol(sym.OR,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> {ALPHA}(({ALPHA}|{DIGIT}|_)*({WHITE_SPACE_CHAR})*({ALPHA}|{DIGIT}|_)+)* {return (new Symbol(sym.IDENTIFICADOR,(new Yytoken(yytext(),yyline))));}	
+<YYINITIAL> "," { return (new Symbol(sym.COMA,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "(" { return (new Symbol(sym.PARENABIERTO,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> ")" { return (new Symbol(sym.PARENCERRADO,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "+" { return (new Symbol(sym.SUMA,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "-" { return (new Symbol(sym.RESTA,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "*" { return (new Symbol(sym.MULTIPLICACION,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "/" { return (new Symbol(sym.DIVISION,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "=" { return (new Symbol(sym.IGUAL,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "<" { return (new Symbol(sym.MENOR,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "=<" {return (new Symbol(sym.MENORIGUAL,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> ">" { return (new Symbol(sym.MAYOR,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> ">=" { return (new Symbol(sym.MAYORIGUAL,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "->"  { return (new Symbol(sym.IMPLICA,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "<->"  { return (new Symbol(sym.DOBLEIMPLICA,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> {DIGIT}+{PUNTO}{DIGIT}+ {return (new Symbol(sym.NUMEROREAL,(new Yytoken(yytext(),yyline))));}
+<YYINITIAL> {DIGIT}+ {return (new Symbol(sym.NUMEROENTERO,(new Yytoken(yytext(),yyline))));}
+<YYINITIAL> {NEWLINE_WHITE_SPACE_CHAR}+ { }
+<YYINITIAL> . {
+        System.out.println("Illegal character: <" + yytext() + ">");
+	Utility.error(Utility.E_UNMATCHED);
+}

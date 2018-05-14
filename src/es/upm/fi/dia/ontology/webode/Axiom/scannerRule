@@ -1,0 +1,59 @@
+package webode.Axiom;
+
+import java.lang.System;
+import java.io.*;
+import java_cup.runtime.Symbol;
+
+
+
+%%
+
+%{
+  private int commencount = 0;
+%} 
+%line
+%char
+%unicode
+%cup
+%class ScannerRule
+%eofval{
+  return new Symbol(symRule.EOF); 
+%eofval}
+ALPHA=[A-Za-zА-За-з?#]
+DIGIT=[0-9]
+PUNTO="."
+NEWLINE_WHITE_SPACE_CHAR=[\ \t\b\r\n]
+WHITE_SPACE_CHAR=[\n\ \t\b\012]
+
+
+%% 
+
+<YYINITIAL> "not_subclass_of"  { return (new Symbol(symRule.NOT_SUBCLASS,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "disjoint_subclass_of"  { return (new Symbol(symRule.DISJOINT,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "subclass_of"  { return (new Symbol(symRule.SUBCLASS,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "exhautive_subclass_partition"  { return (new Symbol(symRule.EXHAUSTIVE,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "transitive_part_of"  { return (new Symbol(symRule.TRANSITIVE,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "instrasitive_part_of"  { return (new Symbol(symRule.INSTRANSITIVE,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "and"     {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.AND,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "if"     {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.IF,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "then"     {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.THEN,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> {ALPHA}({ALPHA}|{DIGIT}|_)* {System.out.println("LEXICO:IDENTIFICADOR"+yytext());return (new Symbol(symRule.IDENTIFICADOR,(new Yytoken(yytext(),yyline))));}	
+<YYINITIAL> "," {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.COMA,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "(" {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.PARENABIERTO,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> ")" {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.PARENCERRADO,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "+" {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.SUMA,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "-" {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.RESTA,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "*" {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.MULTIPLICACION,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "/" {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.DIVISION,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "=" {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.IGUAL,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "<" {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.MENOR,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> "=<" {System.out.println("LEXICO:"+yytext());return (new Symbol(symRule.MENORIGUAL,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> ">" {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.MAYOR,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> ">=" {System.out.println("LEXICO:"+yytext()); return (new Symbol(symRule.MAYORIGUAL,(new Yytoken(yytext(),yyline)))); }
+<YYINITIAL> {DIGIT}+{PUNTO}{DIGIT}+ {System.out.println(yytext());return (new Symbol(symRule.NUMEROREAL,(new Yytoken(yytext(),yyline))));}
+<YYINITIAL> {DIGIT}+ {System.out.println("LEXICO:"+yytext());return (new Symbol(symRule.NUMEROENTERO,(new Yytoken(yytext(),yyline))));}
+<YYINITIAL> {NEWLINE_WHITE_SPACE_CHAR}+ { }
+<YYINITIAL> . {
+        System.out.println("Illegal character: <" + yytext() + ">");
+	Utility.error(Utility.E_UNMATCHED);
+}

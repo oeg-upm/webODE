@@ -1,0 +1,990 @@
+package es.upm.fi.dia.ontology.webode.Axiom;
+
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.Hashtable;
+import java.util.Vector;
+
+/***importaciones de ODE****/
+import es.upm.fi.dia.ontology.webode.service.*;
+/*******************/
+
+
+
+parser code {:
+
+  private Vector clauses;
+  private String [] prologClauses;
+  private Vector errors;
+  protected ODEService odeService;
+  protected String ontologyName;
+
+  public String[] getClauses() {
+    CTree elemento=null;
+    int contador=0;
+    int longitud=clauses.size();
+    String [] result=new String[longitud];
+
+    while (contador<longitud) {
+      elemento=(CTree)clauses.elementAt(contador);
+      result[contador]=Utility.transforma_string(elemento);
+      contador++;
+    }
+    return result;
+  }
+
+  public String[] getPrologClauses() {
+    return prologClauses;
+  }
+
+  public parser(java_cup.runtime.Scanner s, ODEService odeService, String ont) {
+    super(s);
+    this.odeService=odeService;
+    this.ontologyName=ont;
+    errors=new Vector();
+  }
+
+
+  public void report_error(String message, Object info) {
+    errors.add(message);
+    if (info instanceof Symbol)
+      if (((Symbol)info).left != -1)
+        errors.add(" at character " + ((Symbol)info).left +   " of input");
+  }
+
+  public void finalizado(CTree arbol)throws AxiomException {
+    if (errors.isEmpty()) {
+      Utility.pinta_formula(arbol);
+
+      clauses=Utility.ObternerClausulaHorn(arbol);
+      CTree aux=(CTree)(clauses.elementAt(0));
+
+      prologClauses=Utility.TraducirProlog(clauses);
+
+
+    }
+    else {
+      throw new AxiomException(errors);
+    }
+  }
+
+  public void report_fatal_error(String message, Object info)  throws AxiomException {
+    /* stop parsing (not really necessary since we throw an exception, but) */
+    done_parsing();
+
+    /* use the normal error message reporting to put out the message */
+    report_error("Expected \")\" \",\"  or \".\" ", info);
+    report_error("------------------------------","");
+
+    /* throw an exception */
+    throw new AxiomException(errors);
+  }
+
+:}
+
+terminal Yytoken SUBCLASS,NOT_SUBCLASS,DISJOINT,EXHAUSTIVE,TRANSITIVE,INSTRANSITIVE;
+terminal FORALL,EXISTS;
+terminal COMA,PARENCERRADO,PARENABIERTO;
+terminal OR,AND,NOT,IMPLICA,DOBLEIMPLICA;
+terminal Yytoken IDENTIFICADOR;
+terminal IGUAL,MENORIGUAL,MAYORIGUAL,MENOR,MAYOR;
+terminal SUMA,RESTA,MULTIPLICACION,DIVISION;
+terminal Yytoken NUMEROREAL,NUMEROENTERO;
+
+
+non terminal CAtributo inicio, lista_terminos, termino, resto_lista_terminos, atomo, fbf, lista_variables, resto_variables, fbf_entre_parentesis;
+
+
+precedence right IMPLICA,DOBLEIMPLICA;
+precedence left OR;
+precedence left AND;
+precedence right NOT,FORALL,EXISTS;
+precedence left IGUAL,MENOR,MAYOR,MENORIGUAL,MAYORIGUAL;
+precedence left SUMA,RESTA;
+precedence left MULTIPLICACION,DIVISION;
+
+
+start with inicio;
+
+inicio ::= fbf:f1
+    {:
+
+
+    RESULT=new CAtributo();
+
+      RESULT.arbol=f1.arbol;
+
+    try{
+
+      parser.finalizado(f1.arbol);
+
+    }
+    catch (AxiomException e){
+      throw e;
+    }
+
+
+    :}
+       ;
+
+termino ::= IDENTIFICADOR:id {:
+
+
+      RESULT=new CAtributo();
+
+
+      Term term=parser.odeService.getTerm(parser.ontologyName,id.m_text);
+      if(term!=null) {
+        if (term.type!=TermTypes.CONSTANT) {
+          //esta en la ontologia pero nos da igual
+          //parser.report_error("Error:","");
+          //parser.report_error(id.m_text +" is a term of the ontology, please use other name","");
+          RESULT.type=AxiomConstant.VARIABLE;
+
+          RESULT.codigo= "$" + id.m_text + "~" ;
+
+        }
+        else{
+          /*no hacemos nada es una constante*/
+
+          RESULT.codigo= id.m_text ;
+          int type=parser.odeService.getConstant(parser.ontologyName,id.m_text).valueType;
+          if (type==ValueTypes.CARDINAL || type==ValueTypes.FLOAT || type==ValueTypes.INTEGER || type==ValueTypes.RANGE){
+            RESULT.type=AxiomConstant.NUMBER;
+          }
+        }
+
+      }
+      else {
+        /*marcamos que es una variable*/
+          RESULT.type=AxiomConstant.VARIABLE;
+
+          RESULT.codigo= "$" + id.m_text + "~" ;
+      }
+
+
+
+      :}
+    |
+
+
+    NUMEROREAL:num {:
+      RESULT=new CAtributo();
+        RESULT.codigo=num.m_text;
+        RESULT.type=AxiomConstant.NUMBER;
+
+      :}
+    |
+    NUMEROENTERO:num {:
+      RESULT=new CAtributo();
+        RESULT.codigo=num.m_text;
+        RESULT.type=AxiomConstant.NUMBER;
+      :}
+    |
+    IDENTIFICADOR:id PARENABIERTO lista_terminos:list PARENCERRADO {:
+
+      RESULT=new CAtributo();
+
+        RESULT.codigo=id.m_text + "(" + list.codigo + ")";
+        RESULT.type=AxiomConstant.FUNCTION;
+
+
+      :}
+
+    |
+    termino:term1 SUMA termino:term2 {:
+      RESULT=new CAtributo();
+        RESULT.codigo=term1.codigo + "+" + term2.codigo;
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+          RESULT.type=AxiomConstant.NUMBER;
+      }
+      else {
+          RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't add " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+
+      }
+
+
+      :}
+
+    |
+    termino:term1 RESTA termino:term2 {:
+      RESULT=new CAtributo();
+        RESULT.codigo=term1.codigo + "-" + term2.codigo;
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+          RESULT.type=AxiomConstant.NUMBER;
+      }
+      else {
+          RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't subtract " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+      }
+      :}
+
+    |
+    termino:term1 MULTIPLICACION termino:term2 {:
+      RESULT=new CAtributo();
+        RESULT.codigo=term1.codigo + "*" + term2.codigo;
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+          RESULT.type=AxiomConstant.NUMBER;
+      }
+      else {
+          RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't multiply " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+      }
+      :}
+
+    |
+    termino:term1 DIVISION termino:term2 {:
+      RESULT=new CAtributo();
+        RESULT.codigo=term1.codigo + "/" + term2.codigo;
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+          RESULT.type=AxiomConstant.NUMBER;
+      }
+      else{
+          RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't divide " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+      }
+      :}
+
+    |
+    PARENABIERTO termino:term1 SUMA termino:term2 PARENCERRADO {:
+      RESULT=new CAtributo();
+        RESULT.codigo= "(" + term1.codigo + "+" + term2.codigo + ")";
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+          RESULT.type=AxiomConstant.NUMBER;
+      }
+      else {
+          RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't add " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+      }
+      :}
+
+    |
+    PARENABIERTO termino:term1 RESTA termino:term2 PARENCERRADO {:
+      RESULT=new CAtributo();
+        RESULT.codigo= "(" + term1.codigo + "-" + term2.codigo + ")";
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+          RESULT.type=AxiomConstant.NUMBER;
+      }
+      else {
+          RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't subtract " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+      }
+      :}
+
+    |
+    PARENABIERTO termino:term1 MULTIPLICACION termino:term2 PARENCERRADO {:
+      RESULT=new CAtributo();
+        RESULT.codigo= "(" + term1.codigo + "*" + term2.codigo + ")";
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+          RESULT.type=AxiomConstant.NUMBER;
+      }
+      else {
+          RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't multiply " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+      }
+      :}
+
+    |
+    PARENABIERTO termino:term1 DIVISION termino:term2 PARENCERRADO {:
+      RESULT=new CAtributo();
+        RESULT.codigo= "(" + term1.codigo + "/" + term2.codigo + ")";
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+          RESULT.type=AxiomConstant.NUMBER;
+      }
+      else {
+          RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't divide " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+
+
+      }
+      :}
+
+    |
+    PARENABIERTO IDENTIFICADOR:id PARENCERRADO {:
+      RESULT=new CAtributo();
+      Term term=parser.odeService.getTerm(parser.ontologyName,id.m_text);
+
+      if(term!=null) {
+        if (term.type!=TermTypes.CONSTANT) {
+          //esta en la ontologia pero nos da igual
+          //parser.report_error("Error:","");
+          //parser.report_error(id.m_text +" is a term of the ontology, please use other name","");
+          RESULT.type=AxiomConstant.VARIABLE;
+
+          RESULT.codigo= "$" + id.m_text + "~" ;
+        }
+        else {
+          /*no hacemos nada es una constante*/
+          RESULT.codigo= id.m_text ;
+
+          int type=parser.odeService.getConstant(parser.ontologyName,id.m_text).valueType;
+          if (type==ValueTypes.CARDINAL || type==ValueTypes.FLOAT || type==ValueTypes.INTEGER || type==ValueTypes.RANGE){
+            RESULT.type=AxiomConstant.NUMBER;
+          }
+        }
+
+      }
+      else {
+        /*marcamos que es una variable*/
+          RESULT.type=AxiomConstant.VARIABLE;
+
+          RESULT.codigo= "$" + id.m_text + "~" ;
+      }
+      :}
+
+    |
+    PARENABIERTO NUMEROREAL:num PARENCERRADO
+      {:
+      RESULT=new CAtributo();
+      RESULT.codigo="(" + num.m_text + ")";
+      RESULT.type=AxiomConstant.NUMBER;
+      :}
+
+    |
+    PARENABIERTO NUMEROENTERO:num PARENCERRADO {:
+      RESULT=new CAtributo();
+      RESULT.codigo= "(" + num.m_text + ")";
+      RESULT.type=AxiomConstant.NUMBER;
+
+      :}
+    |
+    error:err {:
+
+      RESULT=new CAtributo();
+      RESULT.codigo="error";
+      RESULT.type=AxiomConstant.ERROR;
+      parser.report_error("Error: Malformed term list  ","");
+      parser.report_error("  expected  \")\"  \",\"  or \".\" ","");
+      parser.report_error("------------------------------","");
+
+
+      :}
+
+
+    ;
+
+
+lista_terminos ::= termino:term resto_lista_terminos:rest {:
+
+        RESULT=new CAtributo();
+        RESULT.codigo=term.codigo + rest.codigo;
+        RESULT.nterminos=rest.nterminos+1;
+        RESULT.terminos=rest.terminos;
+        RESULT.terminos.addElement(term.codigo);
+
+
+        :}
+       ;
+
+resto_lista_terminos ::= COMA lista_terminos:list {:
+
+          RESULT=new CAtributo();
+          RESULT.codigo= "," + list.codigo;
+          RESULT.nterminos=list.nterminos;
+          RESULT.terminos=list.terminos;
+
+          :}
+         |
+         /*vacio*/ {:
+
+          RESULT=new CAtributo();
+      RESULT.codigo="";
+      RESULT.nterminos=0;
+      RESULT.terminos=new Vector();
+
+
+          :}
+    |
+    error:err {:
+
+      RESULT=new CAtributo();
+      RESULT.codigo="error";
+      RESULT.type=AxiomConstant.ERROR;
+      RESULT.terminos=null;
+      parser.report_error("Error: Malformed  term list  ","");
+      parser.report_error("  expected  \")\"  \",\"  or \".\" ","");
+      parser.report_error("------------------------------","");
+
+
+      :}
+
+         ;
+
+
+
+
+atomo ::= IDENTIFICADOR:id PARENABIERTO lista_terminos:list PARENCERRADO {:
+
+      RESULT=new CAtributo();
+      RESULT.codigo=id.m_text + "(" + list.codigo + ")";
+
+      RESULT.type=AxiomConstant.BOOLEAN;
+      RESULT.prolog=null;
+
+      if (list.nterminos==1) {
+        Term term=parser.odeService.getTerm(parser.ontologyName,id.m_text);
+        if(term!=null) {
+          RESULT.prolog="instance_of("+list.terminos.elementAt(0)+","+ id.m_text+")";
+          RESULT.prolog=RESULT.prolog.replace(' ','_');
+          RESULT.prolog=RESULT.prolog.toLowerCase();
+          if (term.type != TermTypes.CONCEPT) {
+            parser.report_error("Error:","");
+            parser.report_error(id.m_text + " must be a concept","");
+            parser.report_error("------------------------------","");
+          }
+        }
+        else {
+            parser.report_error("Error:","");
+            parser.report_error(id.m_text + " doesn't exist in the ontology","");
+            parser.report_error("------------------------------","");
+        }
+
+
+      }
+      else if (list.nterminos==2){
+
+        try{
+
+          boolean encontrado=false;
+          int i=0;
+
+          TermRelation [] aux=parser.odeService.getTermRelations(parser.ontologyName, true);
+          while(aux!=null && !encontrado && i<aux.length) {
+            encontrado=aux[i].name.equals(id.m_text);
+            i++;
+          }
+
+          i=0;
+          Term [] aux1=parser.odeService.getTerms(parser.ontologyName,new int [] {TermTypes.INSTANCE_ATTRIBUTE});
+          while(aux1!=null && !encontrado && i<aux1.length) {
+            encontrado=aux1[i].term.equals(id.m_text);
+            i++;
+          }
+
+          i=0;
+          aux1=parser.odeService.getTerms(parser.ontologyName,new int [] {TermTypes.CLASS_ATTRIBUTE});
+          while(aux1!=null && !encontrado && i<aux1.length) {
+            encontrado=aux1[i].term.equals(id.m_text);
+            i++;
+          }
+
+          if ( !encontrado ) {
+            parser.report_error("Error:","");
+            parser.report_error(id.m_text + " must be a attribute or a relation","");
+            parser.report_error("------------------------------","");
+          }
+          else {
+
+            RESULT.prolog="value_facet_of(" + (String)list.terminos.elementAt(0) + ",value,"+ id.m_text+ "," + list.terminos.elementAt(1)+")";
+            RESULT.prolog=RESULT.prolog.replace(' ','_');
+            RESULT.prolog=RESULT.prolog.toLowerCase();
+          }
+
+
+        }
+        catch (NullPointerException e){
+            parser.report_error("Error:","");
+            parser.report_error(id.m_text + " doesn't exist in the ontology","");
+            parser.report_error("------------------------------","");
+        }
+      }
+      else {
+          parser.report_error("Error:","");
+          parser.report_error(id.m_text + " cannot have three or more terms","");
+          parser.report_error("------------------------------","");
+      }
+      :}
+
+    |
+    IDENTIFICADOR:id error:err {:
+
+      RESULT=new CAtributo();
+      RESULT.codigo="error";
+      RESULT.type=AxiomConstant.ERROR;
+      RESULT.prolog="error";
+      parser.report_error("Error: Malformed term list of "+id.m_text,"");
+      parser.report_error("  expected  \")\"  \",\"  or \".\" ","");
+      parser.report_error("------------------------------","");
+
+      :}
+
+    |
+    SUBCLASS:id PARENABIERTO lista_terminos:list PARENCERRADO {:
+      RESULT=new CAtributo();
+
+      RESULT.codigo=id.m_text + "(" + list.codigo + ")";
+      RESULT.type=AxiomConstant.BOOLEAN;
+      RESULT.prolog=RESULT.codigo;
+
+
+
+      if (list.nterminos != 2) {
+
+          parser.report_error("Error:","");
+          parser.report_error(id.m_text + " must to have two terms","");
+          parser.report_error("------------------------------","");
+      }
+
+
+      :}
+      |
+      NOT_SUBCLASS:id PARENABIERTO lista_terminos:list PARENCERRADO {:
+      RESULT=new CAtributo();
+
+      RESULT.codigo=id.m_text + "(" + list.codigo + ")";
+      RESULT.type=AxiomConstant.BOOLEAN;
+      RESULT.prolog=RESULT.codigo;
+
+
+
+      if (list.nterminos != 2){
+
+          parser.report_error("Error:","");
+          parser.report_error(id.m_text + " must to have two terms","");
+          parser.report_error("------------------------------","");
+      }
+
+      :}
+
+      |
+
+      DISJOINT:id PARENABIERTO lista_terminos:list PARENCERRADO {:
+      RESULT=new CAtributo();
+
+      RESULT.codigo=id.m_text + "(" + list.codigo + ")";
+      RESULT.type=AxiomConstant.BOOLEAN;
+      RESULT.prolog=RESULT.codigo;
+
+      if (list.nterminos != 2){
+        parser.report_error("Error:","");
+        parser.report_error(id.m_text + " must to have two terms","");
+        parser.report_error("------------------------------","");
+      }
+
+
+      :}
+      |
+      EXHAUSTIVE:id PARENABIERTO lista_terminos:list PARENCERRADO {:
+      RESULT=new CAtributo();
+
+      RESULT.codigo=id.m_text + "(" + list.codigo + ")";
+      RESULT.type=AxiomConstant.BOOLEAN;
+      RESULT.prolog=RESULT.codigo;
+
+      if (list.nterminos != 2){
+
+        parser.report_error("Error:","");
+        parser.report_error(id.m_text + " must to have two terms","");
+        parser.report_error("------------------------------","");
+      }
+
+
+      :}
+      |
+      TRANSITIVE:id PARENABIERTO lista_terminos:list PARENCERRADO {:
+      RESULT=new CAtributo();
+
+      RESULT.codigo=id.m_text + "(" + list.codigo + ")";
+      RESULT.type=AxiomConstant.BOOLEAN;
+      RESULT.prolog=RESULT.codigo;
+
+      if (list.nterminos != 2){
+        parser.report_error("Error:","");
+        parser.report_error(id.m_text + " must to have two terms","");
+        parser.report_error("------------------------------","");
+      }
+
+
+      :}
+      |
+      INSTRANSITIVE:id PARENABIERTO lista_terminos:list PARENCERRADO {:
+      RESULT=new CAtributo();
+
+      RESULT.codigo=id.m_text + "(" + list.codigo + ")";
+      RESULT.type=AxiomConstant.BOOLEAN;
+      RESULT.prolog=RESULT.codigo;
+
+
+      if (list.nterminos != 2){
+        parser.report_error("Error:","");
+        parser.report_error(id.m_text + " must to have two terms","");
+        parser.report_error("------------------------------","");
+      }
+
+
+
+       :}
+    |
+    error:err PARENABIERTO lista_terminos:list PARENCERRADO {:
+
+      RESULT=new CAtributo();
+      RESULT.codigo="error";
+      RESULT.type=AxiomConstant.ERROR;
+      RESULT.prolog="error";
+      parser.report_error("Error: Malformed term varibles list","");
+      parser.report_error("  expected  \"relation\"  \"attribute\" or   \"concept\" name ","");
+      parser.report_error("------------------------------","");
+
+
+
+      :}
+
+
+      |
+    termino:term1 MAYOR termino:term2 {:
+      RESULT=new CAtributo();
+      RESULT.codigo=term1.codigo + ">" + term2.codigo;
+      RESULT.prolog=RESULT.codigo;
+
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+          RESULT.type=AxiomConstant.BOOLEAN;
+      }
+      else {
+        RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't compare " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+      }
+      :}
+
+      |
+      termino:term1 MENOR termino:term2 {:
+        RESULT=new CAtributo();
+        RESULT.codigo=term1.codigo + "<" + term2.codigo;
+        RESULT.prolog=RESULT.codigo;
+
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+        RESULT.type=AxiomConstant.BOOLEAN;
+      }
+      else {
+        RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't compare " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+
+
+      }
+
+
+      :}
+
+      |
+      termino:term1 MAYORIGUAL termino:term2 {:
+      RESULT=new CAtributo();
+      RESULT.codigo=term1.codigo + ">=" + term2.codigo;
+      RESULT.prolog=RESULT.codigo;
+
+      if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+        RESULT.type=AxiomConstant.BOOLEAN;
+      }
+      else {
+        RESULT.type=AxiomConstant.ERROR;
+        parser.report_error("Error: Couldn't compare " + term1.codigo + "and" + term2.codigo,"");
+        parser.report_error("  they aren't numerical values","");
+        parser.report_error("------------------------------","");
+      }
+
+      :}
+
+      |
+      termino:term1 MENORIGUAL termino:term2 {:
+        RESULT=new CAtributo();
+        RESULT.codigo=term1.codigo + "<=" + term2.codigo;
+        RESULT.prolog=RESULT.codigo;
+
+        if ( (term1.type==AxiomConstant.NUMBER || term1.type==AxiomConstant.FUNCTION)  && (term2.type==AxiomConstant.NUMBER || term2.type==AxiomConstant.FUNCTION)) {
+            RESULT.type=AxiomConstant.BOOLEAN;
+        }
+        else {
+          RESULT.type=AxiomConstant.ERROR;
+          parser.report_error("Error: Couldn't compare " + term1.codigo + "and" + term2.codigo,"");
+          parser.report_error("  they aren't numerical values","");
+          parser.report_error("------------------------------","");
+        }
+
+
+      :}
+
+      |
+      termino:term1 IGUAL termino:term2 {:
+        RESULT=new CAtributo();
+        RESULT.codigo=term1.codigo + "=" + term2.codigo;
+        RESULT.type=AxiomConstant.BOOLEAN;
+        RESULT.prolog=RESULT.codigo;
+
+        if (term1.type!=term2.type) {
+          RESULT.type=AxiomConstant.ERROR;
+          parser.report_error("Error: Couldn't compare " + term1.codigo + "and" + term2.codigo,"");
+          parser.report_error("operator = cannot be applied with different types","");
+          parser.report_error("------------------------------","");
+        }
+
+      :}
+
+      |
+      PARENABIERTO atomo:term1 PARENCERRADO {:
+        RESULT=new CAtributo();
+        RESULT.codigo= "(" + term1.codigo + ")";
+        RESULT.type=term1.type;
+        RESULT.prolog=term1.prolog;
+      :}
+      ;
+
+/*fbf es una formula bien formada*/
+fbf ::= atomo:atom
+  {:
+    RESULT=new CAtributo();
+    RESULT.arbol=new CTree();
+    RESULT.arbol.Add(null,atom.codigo,CNodeType.NODO_HOJA,null);
+    RESULT.arbol.prolog=atom.prolog;
+    RESULT.arbol.prolog=RESULT.arbol.prolog.replace('$', ' ');
+    RESULT.arbol.prolog=RESULT.arbol.prolog.replace('~', ' ');
+
+
+  :}
+     |
+    fbf:f1 OR fbf:f2
+    {:
+    RESULT=new CAtributo();
+    RESULT.arbol=new CTree();
+    RESULT.arbol.Add(f1.arbol,"or",CNodeType.NODO_OR,f2.arbol);
+
+    :}
+
+    |
+    fbf:f1 AND fbf:f2
+    {:
+    RESULT=new CAtributo();
+    RESULT.arbol=new CTree();
+    RESULT.arbol.Add(f1.arbol,"and",CNodeType.NODO_AND,f2.arbol);
+
+    :}
+
+    |
+    fbf:f1 IMPLICA fbf:f2
+    {:
+    RESULT=new CAtributo();
+    RESULT.arbol=new CTree();
+    RESULT.arbol.Add(f1.arbol,"implica",CNodeType.NODO_IMPLICA,f2.arbol);
+
+    :}
+
+    |
+    fbf:f1 DOBLEIMPLICA fbf:f2
+    {:
+    RESULT=new CAtributo();
+    RESULT.arbol=new CTree();
+    RESULT.arbol.Add(f1.arbol,"dobleimplica",CNodeType.NODO_DOBLEIMPLICA,f2.arbol);
+
+    :}
+
+    |
+    fbf:f1  error:err {:
+
+      RESULT=new CAtributo();
+      RESULT.codigo="error";
+      RESULT.arbol=new CTree();
+      RESULT.type=AxiomConstant.ERROR;
+      RESULT.arbol.Add(f1.arbol,"and",CNodeType.NODO_AND,f1.arbol);
+      parser.report_error("Error: Malformed term  ","");
+      parser.report_error("  expected  \"and\"  \"or\" \"->\" \"<->\" or Malformed list of quantified variables","");
+      parser.report_error("------------------------------","");
+
+
+      :}
+
+
+
+    |
+    NOT fbf:f1
+    {:
+    RESULT=new CAtributo();
+      RESULT.arbol=new CTree();
+      RESULT.arbol.Add(f1.arbol,"not",CNodeType.NODO_NOT);
+
+    :}
+
+
+
+    |
+    FORALL lista_variables:lv fbf:f1
+    {:
+    RESULT=new CAtributo();
+      RESULT.arbol=new CTree();
+      RESULT.arbol.Add(f1.arbol,"forall",CNodeType.NODO_FORALL);
+      RESULT.arbol.lista=lv.lista;
+
+
+    :}
+
+    |
+    EXISTS lista_variables:lv fbf:f1
+    {:
+
+    RESULT=new CAtributo();
+      RESULT.arbol=new CTree();
+      RESULT.arbol.Add(f1.arbol,"exists",CNodeType.NODO_EXISTS);
+      RESULT.arbol.lista=lv.lista;
+
+    :}
+  |
+    fbf_entre_parentesis:f1
+    {:
+    RESULT=new CAtributo();
+    RESULT.arbol=f1.arbol;
+
+    :}
+
+    ;
+
+
+fbf_entre_parentesis ::= PARENABIERTO fbf:f1 OR fbf:f2 PARENCERRADO {:
+      RESULT=new CAtributo();
+      RESULT.arbol=new CTree();
+      RESULT.arbol.Add(f1.arbol,"or",CNodeType.NODO_OR,f2.arbol);
+
+          :}
+
+           |
+           PARENABIERTO fbf:f1 AND fbf:f2 PARENCERRADO {:
+          RESULT=new CAtributo();
+          RESULT.arbol=new CTree();
+          RESULT.arbol.Add(f1.arbol,"and",CNodeType.NODO_AND,f2.arbol);
+
+          :}
+           |
+         PARENABIERTO fbf:f1 IMPLICA fbf:f2 PARENCERRADO {:
+          RESULT=new CAtributo();
+      RESULT.arbol=new CTree();
+      RESULT.arbol.Add(f1.arbol,"implica",CNodeType.NODO_IMPLICA,f2.arbol);
+
+          :}
+
+           |
+         PARENABIERTO fbf:f1 DOBLEIMPLICA fbf:f2 PARENCERRADO {:
+          RESULT=new CAtributo();
+      RESULT.arbol=new CTree();
+      RESULT.arbol.Add(f1.arbol,"dobleimplica",CNodeType.NODO_DOBLEIMPLICA,f2.arbol);
+
+          :}
+    |
+     PARENABIERTO fbf:f1 error:err PARENCERRADO {:
+
+      RESULT=new CAtributo();
+      RESULT.codigo="error";
+        RESULT.arbol=new CTree();
+        RESULT.type=AxiomConstant.ERROR;
+        RESULT.arbol.Add(f1.arbol,"and",CNodeType.NODO_AND,f1.arbol);
+      parser.report_error("Error: Malformed term  ","");
+      parser.report_error("  expected  \"and\"  \"or\" \"->\" \"<->\" or Malformed list of quantified variables","");
+      parser.report_error("------------------------------","");
+
+
+      :}
+
+
+       |
+
+         PARENABIERTO NOT fbf:f1 PARENCERRADO {:
+          RESULT=new CAtributo();
+      RESULT.arbol=new CTree();
+      RESULT.arbol.Add(f1.arbol,"not",CNodeType.NODO_NOT);
+
+          :}
+
+         |
+         PARENABIERTO FORALL lista_variables:lv fbf:f1 PARENCERRADO {:
+          RESULT=new CAtributo();
+      RESULT.arbol=new CTree();
+      RESULT.arbol.Add(f1.arbol,"forall",CNodeType.NODO_FORALL);
+      RESULT.arbol.lista=lv.lista;
+
+
+          :}
+
+           |
+         PARENABIERTO EXISTS lista_variables:lv fbf:f1 PARENCERRADO {:
+          RESULT=new CAtributo();
+      RESULT.arbol=new CTree();
+      RESULT.arbol.Add(f1.arbol,"exists",CNodeType.NODO_EXISTS);
+      RESULT.arbol.lista=lv.lista;
+
+          :}
+
+           ;
+
+lista_variables ::= PARENABIERTO IDENTIFICADOR:id PARENCERRADO {:
+          RESULT=new CAtributo();
+      RESULT.lista=new Vector();
+      RESULT.lista.addElement(id.m_text);
+
+
+        :}
+      |
+        PARENABIERTO IDENTIFICADOR:id resto_variables:rv PARENCERRADO {:
+          RESULT=new CAtributo();
+          rv.lista.addElement(id.m_text);
+      RESULT.lista=rv.lista;
+
+        :}
+  |
+    error:err {:
+
+      RESULT=new CAtributo();
+        RESULT.lista=new Vector();
+        RESULT.lista.addElement("error");
+      parser.report_error("Error: Malformed list of quantified variables ","");
+      parser.report_error("  expected  \")\"  \",\"  or \".\" ","");
+      parser.report_error("------------------------------","");
+
+
+      :}
+
+        ;
+
+resto_variables ::= COMA IDENTIFICADOR:id {:
+
+          RESULT=new CAtributo();
+      RESULT.lista=new Vector();
+      RESULT.lista.addElement(id.m_text);
+
+        :}
+        |
+        COMA IDENTIFICADOR:id resto_variables:rv {:
+          RESULT=new CAtributo();
+          rv.lista.addElement(id.m_text);
+      RESULT.lista=rv.lista;
+
+        :}
+
+    |
+    error:err {:
+
+      RESULT=new CAtributo();
+        RESULT.lista=new Vector();
+        RESULT.lista.addElement("error");
+      parser.report_error("Error: Malformed list of quantified variables ","");
+      parser.report_error("  expected  \")\"  \",\"  or \".\" ","");
+      parser.report_error("------------------------------","");
+
+
+      :}
+
+        ;

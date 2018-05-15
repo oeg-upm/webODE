@@ -1,0 +1,6 @@
+(Angel)
+Migrado los paquetes minerva.* --> es.upm.fi.dia.ontology.minerva.*
+Modificado las referencias a los paquetes minerva y jupiter:
+	jupiter.* --> es.upm.fi.dia.ontology.jupiter.*
+	webode.* --> es.upm.fi.dia.ontology.webode.*
+

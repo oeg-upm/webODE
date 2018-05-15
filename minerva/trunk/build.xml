@@ -1,0 +1,216 @@
+<?xml version="1.0"?>
+<project name="Minerva" default="archive">
+  <property file="build.properties"/>
+  <property name="project.dir" location="."/>
+  <property name="src.dir" location="src"/>
+  <property name="build.classes.dir" location="build/classes"/>
+  <property name="test.dir" location="test"/>
+  <property name="test.src.dir" location="test/src"/>
+  <property name="test.classes.dir" location="test/classes"/>
+  <property name="dist.dir" location="dist"/>
+  <property name="doc.dir" location="doc"/>
+  <property name="lib.dir" location="lib"/>
+
+  <path id="3rdparty.lib">
+    <fileset dir="${lib.dir}">
+      <include name="*.jar"/>
+    </fileset>
+  </path>
+  
+  <path id="compile.classpath">
+    <path refid="3rdparty.lib"/>
+  </path>
+
+  <target name="init"
+          description="Creates the necessary directory">
+    <mkdir dir="${build.classes.dir}"/>
+    <mkdir dir="${dist.dir}"/>
+    <mkdir dir="${doc.dir}"/>
+  </target>
+  
+  <target name="compile" depends="init"
+          description="Compiles the source codes">
+    
+    <javac srcdir="${src.dir}"
+           destdir="${build.classes.dir}"
+           debug="yes">
+      <classpath refid="compile.classpath"/>
+      <include name="**/*.java"/>
+    </javac>
+  </target>
+
+  <target name="compile_test" depends="compile"
+          description="Compiles the test source codes">
+    
+    <mkdir dir="${test.classes.dir}"/>
+    <javac srcdir="${test.src.dir}"
+           destdir="${test.classes.dir}"
+           debug="yes">
+      <classpath>
+        <fileset dir="${dist.dir}">
+          <include name="**/*.jar"/>
+        </fileset>
+      </classpath>
+    </javac>
+  </target>
+
+  <target name="minervarmic" depends="compile">
+    <jar destfile="${dist.dir}/tools.jar">
+      <fileset dir="${build.classes.dir}">
+        <include name="es/upm/fi/dia/ontology/minerva/tools/**/*"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <target name="stub" depends="minervarmic">
+    <path id="stub.classpath">
+      <path refid="compile.classpath"/>
+    </path>
+
+    <rmic stubversion="1.2" base="${build.classes.dir}" sourcebase="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.builtin.LogServiceImp">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+    <rmic stubversion="1.2" base="${build.classes.dir}" sourcebase="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.MinervaSessionImp">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+    <rmic stubversion="1.2" base="${build.classes.dir}" sourcebase="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.admin.AdministrationServiceImp">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+    <rmic stubversion="1.2" base="${build.classes.dir}" sourcebase="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.others.DatabaseServiceImp">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+    <rmic stubversion="1.2" base="${build.classes.dir}" sourcebase="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.others.DBCPServiceImp">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+    <rmic stubversion="1.2" base="${build.classes.dir}" sourcebase="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.others.BackupServiceImp">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+    <rmic stubversion="1.2" base="${build.classes.dir}" sourcebase="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.others.ThreadPoolServiceImp">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+    <rmic stubversion="1.2" base="${build.classes.dir}" sourcebase="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.others.BatchWorkerServiceImp">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+
+    <replace dir="${build.classes.dir}" token="java.rmi.server.RemoteStub" value="es.upm.fi.dia.ontology.minerva.server.rmi.MinervaRemoteStub">
+      <include name="**/*_Stub.java"/>
+    </replace>
+  
+      <javac srcdir="${build.classes.dir}"
+           destdir="${build.classes.dir}"
+           debug="yes">
+      <classpath refid="compile.classpath"/>
+      <include name="**/*.java"/>
+    </javac>
+
+    <delete>
+      <fileset dir="${build.classes.dir}">
+        <include name="**/*_Stub.java"/>
+      </fileset>
+    </delete>
+
+    <rmic stubversion="1.2" base="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.management.MinervaManagerImp">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+    <rmic stubversion="1.2" base="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.builtin.AuthenticationServiceManager">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+    <rmic stubversion="1.2" base="${build.classes.dir}" sourcebase="${build.classes.dir}" classname="es.upm.fi.dia.ontology.minerva.server.builtin.AuthenticationServiceImp">
+      <classpath refid="compile.classpath"/>
+    </rmic>
+  </target>
+
+  <target name="check_subversion" unless="svn_error">
+    <echo>Subversion client is not available. The JAR files are tagged from a unknown version of the project. Please, include subversion client in the system path.</echo>
+    <property name="build.version" value="unknown"/>
+  </target>
+
+  <target name="archive" depends="stub"
+          description="Creates the JAR files">
+    <exec executable="svnversion" outputproperty="build.version" failifexecutionfails="false" errorproperty="svn_error">
+      <arg line="${project.dir}"/>
+    </exec>
+    <antcall target="check_subversion"/>
+    <jar destfile="${dist.dir}/client.jar">
+      <fileset dir="${build.classes.dir}">
+        <include name="es/upm/fi/dia/ontology/minerva/client/**/*"/>
+      </fileset>
+      <manifest>
+        <attribute name="Project-Version" value="${build.version}"/>
+      </manifest>
+    </jar>
+    <jar destfile="${dist.dir}/minerva_jaas.jar">
+      <fileset dir="${build.classes.dir}">
+        <include name="es/upm/fi/dia/ontology/minerva/jaas/**/*"/>
+      </fileset>
+      <manifest>
+        <attribute name="Project-Version" value="${build.version}"/>
+      </manifest>
+    </jar>
+    <jar destfile="${dist.dir}/mmc.jar">
+      <fileset dir="${build.classes.dir}">
+        <include name="es/upm/fi/dia/ontology/minerva/mmc/**/*"/>
+      </fileset>
+      <manifest>
+        <attribute name="Project-Version" value="${build.version}"/>
+      </manifest>
+    </jar>
+    <jar destfile="${dist.dir}/minerva.jar">
+      <fileset dir="${build.classes.dir}">
+        <include name="es/upm/fi/dia/ontology/minerva/server/**/*"/>
+        <exclude name="es/upm/fi/dia/ontology/minerva/server/others**/*"/>
+      </fileset>
+      <manifest>
+        <attribute name="Project-Version" value="${build.version}"/>
+      </manifest>
+    </jar>
+    <jar destfile="${dist.dir}/others.jar">
+      <fileset dir="${build.classes.dir}">
+        <include name="es/upm/fi/dia/ontology/minerva/server/others/**/*"/>
+      </fileset>
+      <manifest>
+        <attribute name="Project-Version" value="${build.version}"/>
+      </manifest>
+    </jar>
+  </target>
+
+  <target name="deploy" depends="archive"
+          description="Deploy to the application">
+    <copy todir="${WEBODE_HOME}/java/classes">
+      <fileset dir="${dist.dir}" includes="*.jar"/>
+    </copy>
+  </target>
+
+  <target name="clean"
+          description="Removes all directories excepts the source code">
+    <delete dir="${build.classes.dir}"/>
+    <delete dir="${dist.dir}"/>
+    <delete dir="${doc.dir}"/>
+  </target>
+  
+  <target name="doc"
+          description="Create JavaDoc the of the project">
+    <javadoc author="true"
+             destdir="${doc.dir}"
+             use="true"
+             version="true"
+             windowtitle="Minerva Application Server Documentation ${minerva.version} Build ${minerva.build}">
+      <classpath refid="compile.classpath"/>
+      <packageset dir="${src.dir}">
+        <include name="es/**" />
+      </packageset>
+    </javadoc>
+  </target>
+  
+  <target name="test_jaas" depends="compile_test">
+    <java classname="test.Main1" fork="true" input="${test.dir}/login.test">
+      <jvmarg value="-Djava.security.auth.login.config=${test.dir}/login.conf"/>
+      <classpath>
+        <pathelement location="${dist.dir}/client.jar"/>
+        <pathelement location="${dist.dir}/minerva.jar"/>
+        <pathelement location="${dist.dir}/minerva_jaas.jar"/>
+        <pathelement location="${test.classes.dir}/"/>
+      </classpath>
+    </java>
+  </target>
+</project>

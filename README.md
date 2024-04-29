@@ -1,4 +1,5 @@
-# webODE
+# webODE 
+[![Project Status: Unsupported – The project has reached a stable, usable state but the author(s) have ceased all work on it. A new maintainer may be desired.](https://www.repostatus.org/badges/latest/unsupported.svg)](https://www.repostatus.org/#unsupported)
 
 WebODE is an extensible ontology-engineering suite based on an application server, whose development started in 1999 and whose **support was discontinued in 2006**. The core of WebODE was its ontology access service, used by all the services and applications plugged into the server. The WebODE's Ontology Editor allowed editing and browsing WebODE ontologies, and was based on HTML forms and Java applets.
 
